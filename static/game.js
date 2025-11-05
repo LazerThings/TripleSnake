@@ -8,6 +8,14 @@ const COLORS = [
     "#663300", "#660066", "#336600"
 ];
 
+// Triangle geometry constants
+const CANVAS_SIZE = 800;
+const TRIANGLE_CENTER = CANVAS_SIZE / 2;
+const TRIANGLE_RADIUS = 350;
+const PADDLE_LENGTH = 120;
+const PADDLE_WIDTH = 15;
+const BALL_RADIUS = 8;
+
 // Game state
 let ws = null;
 let currentScreen = 'menu';
@@ -15,9 +23,10 @@ let selectedColor = COLORS[0];
 let lobbyCode = null;
 let isCreator = false;
 let gameState = null;
-let playerDirection = { x: 0, y: 0 };
+let myPlayerIndex = 0;
 let myUsername = '';
 let usedColors = [];
+let keysPressed = {};
 
 // Canvas
 const canvas = document.getElementById('gameCanvas');
@@ -66,7 +75,8 @@ function setupEventListeners() {
     });
 
     // Keyboard controls
-    document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
 }
 
 function renderColorPickers() {
@@ -98,7 +108,7 @@ function renderColorPickers() {
 
 function selectColor(color, screen) {
     if (usedColors.includes(color) && screen === 'join') {
-        return; // Can't select used colors when joining
+        return;
     }
 
     selectedColor = color;
@@ -111,18 +121,6 @@ function selectColor(color, screen) {
             opt.classList.add('selected');
         } else {
             opt.classList.remove('selected');
-        }
-    });
-}
-
-function updateJoinColorPicker(availableColors) {
-    const picker = document.getElementById('joinColorPicker');
-    picker.querySelectorAll('.color-option').forEach(opt => {
-        const color = opt.dataset.color;
-        if (!availableColors.includes(color)) {
-            opt.classList.add('disabled');
-        } else {
-            opt.classList.remove('disabled');
         }
     });
 }
@@ -194,6 +192,7 @@ function handleWebSocketMessage(message) {
 
         case 'game_update':
             gameState = message;
+            myPlayerIndex = message.your_index;
             renderGame();
             break;
 
@@ -278,7 +277,6 @@ function updateLobbyDisplay(message) {
     const playersList = document.getElementById('playersList');
     playersList.innerHTML = '';
 
-    // Track used colors
     usedColors = [];
 
     for (let i = 0; i < 3; i++) {
@@ -313,94 +311,133 @@ function updateLobbyDisplay(message) {
         }
     }
 
-    // If game started, show game screen
     if (message.game_started) {
         showScreen('gameScreen');
     }
+}
+
+function getTriangleVertices() {
+    const vertices = [];
+    for (let i = 0; i < 3; i++) {
+        const angle = (i * 120 - 90) * Math.PI / 180;
+        const x = TRIANGLE_CENTER + TRIANGLE_RADIUS * Math.cos(angle);
+        const y = TRIANGLE_CENTER + TRIANGLE_RADIUS * Math.sin(angle);
+        vertices.push({x, y});
+    }
+    return vertices;
+}
+
+function rotatePoint(x, y, angle, centerX, centerY) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const dx = x - centerX;
+    const dy = y - centerY;
+    return {
+        x: centerX + dx * cos - dy * sin,
+        y: centerY + dx * sin + dy * cos
+    };
 }
 
 function renderGame() {
     if (!gameState) return;
 
     // Clear canvas
-    ctx.fillStyle = '#1a1a1a';
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw border
-    ctx.strokeStyle = '#444';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    // Calculate rotation angle so current player is at bottom
+    // Player 0 is at bottom (no rotation needed for them)
+    // Player 1 needs -120° rotation
+    // Player 2 needs +120° rotation
+    const rotationAngle = -myPlayerIndex * 120 * Math.PI / 180;
 
-    // Draw grid
-    ctx.strokeStyle = '#2a2a2a';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < canvas.width; i += 40) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, canvas.height);
-        ctx.stroke();
-    }
-    for (let i = 0; i < canvas.height; i += 40) {
-        ctx.beginPath();
-        ctx.moveTo(0, i);
-        ctx.lineTo(canvas.width, i);
-        ctx.stroke();
-    }
+    // Save context
+    ctx.save();
 
-    // Draw snakes
+    // Draw triangle
+    const vertices = getTriangleVertices();
+    ctx.strokeStyle = '#00ff00';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+        const v = rotatePoint(vertices[i].x, vertices[i].y, rotationAngle, TRIANGLE_CENTER, TRIANGLE_CENTER);
+        if (i === 0) {
+            ctx.moveTo(v.x, v.y);
+        } else {
+            ctx.lineTo(v.x, v.y);
+        }
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Draw paddles
     gameState.players.forEach((player, index) => {
-        if (player && player.snake && player.snake.length > 0) {
+        if (player) {
+            // Get edge endpoints for this player
+            const edgeMap = {0: [1, 2], 1: [2, 0], 2: [0, 1]};
+            const [v1Idx, v2Idx] = edgeMap[player.player_index];
+            const v1 = vertices[v1Idx];
+            const v2 = vertices[v2Idx];
+
+            // Calculate paddle position along edge
+            const paddleX = v1.x + (v2.x - v1.x) * player.paddle_position;
+            const paddleY = v1.y + (v2.y - v1.y) * player.paddle_position;
+
+            // Edge direction
+            const edgeDx = v2.x - v1.x;
+            const edgeDy = v2.y - v1.y;
+            const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
+            const edgeUnitX = edgeDx / edgeLen;
+            const edgeUnitY = edgeDy / edgeLen;
+
+            // Paddle endpoints
+            const halfLen = PADDLE_LENGTH / 2;
+            const p1 = {
+                x: paddleX - edgeUnitX * halfLen,
+                y: paddleY - edgeUnitY * halfLen
+            };
+            const p2 = {
+                x: paddleX + edgeUnitX * halfLen,
+                y: paddleY + edgeUnitY * halfLen
+            };
+
+            // Rotate for current player's view
+            const rp1 = rotatePoint(p1.x, p1.y, rotationAngle, TRIANGLE_CENTER, TRIANGLE_CENTER);
+            const rp2 = rotatePoint(p2.x, p2.y, rotationAngle, TRIANGLE_CENTER, TRIANGLE_CENTER);
+
+            // Draw paddle
             ctx.strokeStyle = player.color;
-            ctx.lineWidth = 8;
+            ctx.lineWidth = PADDLE_WIDTH;
             ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            // Draw snake body
             ctx.beginPath();
-            ctx.moveTo(player.snake[0].x, player.snake[0].y);
-            for (let i = 1; i < player.snake.length; i++) {
-                ctx.lineTo(player.snake[i].x, player.snake[i].y);
-            }
+            ctx.moveTo(rp1.x, rp1.y);
+            ctx.lineTo(rp2.x, rp2.y);
             ctx.stroke();
-
-            // Draw snake head
-            const head = player.snake[0];
-            ctx.fillStyle = player.color;
-            ctx.beginPath();
-            ctx.arc(head.x, head.y, 6, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Draw glow effect on head
-            const gradient = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 15);
-            gradient.addColorStop(0, player.color + '88');
-            gradient.addColorStop(1, player.color + '00');
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(head.x, head.y, 15, 0, Math.PI * 2);
-            ctx.fill();
         }
     });
 
     // Draw ball
     if (gameState.ball) {
-        const ball = gameState.ball;
+        const ball = rotatePoint(gameState.ball.x, gameState.ball.y, rotationAngle, TRIANGLE_CENTER, TRIANGLE_CENTER);
 
         // Ball glow
-        const gradient = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, 20);
+        const gradient = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, BALL_RADIUS * 2);
         gradient.addColorStop(0, '#ffffff');
         gradient.addColorStop(0.5, '#ffff00');
-        gradient.addColorStop(1, '#ff8800');
+        gradient.addColorStop(1, 'rgba(255, 136, 0, 0)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(ball.x, ball.y, 12, 0, Math.PI * 2);
+        ctx.arc(ball.x, ball.y, BALL_RADIUS * 2, 0, Math.PI * 2);
         ctx.fill();
 
         // Ball core
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(ball.x, ball.y, 6, 0, Math.PI * 2);
+        ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
         ctx.fill();
     }
+
+    ctx.restore();
 
     // Update scoreboard
     updateScoreboard();
@@ -441,48 +478,37 @@ function updateScoreboard() {
     });
 }
 
-function handleKeyPress(event) {
+function handleKeyDown(event) {
     if (currentScreen !== 'gameScreen' || !ws) return;
+    keysPressed[event.key] = true;
+    updatePaddleMovement();
+}
 
-    let direction = null;
+function handleKeyUp(event) {
+    if (currentScreen !== 'gameScreen' || !ws) return;
+    keysPressed[event.key] = false;
+    updatePaddleMovement();
+}
 
-    switch (event.key) {
-        case 'ArrowUp':
-        case 'w':
-        case 'W':
-            direction = { x: 0, y: -1 };
-            event.preventDefault();
-            break;
-        case 'ArrowDown':
-        case 's':
-        case 'S':
-            direction = { x: 0, y: 1 };
-            event.preventDefault();
-            break;
-        case 'ArrowLeft':
-        case 'a':
-        case 'A':
-            direction = { x: -1, y: 0 };
-            event.preventDefault();
-            break;
-        case 'ArrowRight':
-        case 'd':
-        case 'D':
-            direction = { x: 1, y: 0 };
-            event.preventDefault();
-            break;
+function updatePaddleMovement() {
+    let direction = 0;
+
+    if (keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) {
+        direction = -1;
+    }
+    if (keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) {
+        direction = 1;
     }
 
-    if (direction) {
-        playerDirection = direction;
+    if (direction !== 0) {
         ws.send(JSON.stringify({
-            type: 'player_input',
+            type: 'paddle_move',
             direction: direction
         }));
     }
 }
 
 function showGameOver(winner) {
-    document.getElementById('winnerText').textContent = `${winner} wins!`;
+    document.getElementById('winnerText').textContent = `${winner} WINS!`;
     showScreen('gameOverScreen');
 }

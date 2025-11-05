@@ -2,6 +2,7 @@ import asyncio
 import random
 import string
 import time
+import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 from quart import Quart, render_template, websocket, jsonify
@@ -21,6 +22,18 @@ COLORS = [
 
 BOT_NAMES = ["Robot", "Botsy"]
 
+# Triangle geometry constants
+CANVAS_SIZE = 800
+TRIANGLE_CENTER = CANVAS_SIZE / 2
+TRIANGLE_RADIUS = 350  # Distance from center to vertices
+PADDLE_LENGTH = 120
+PADDLE_WIDTH = 15
+BALL_RADIUS = 8
+
+@dataclass
+class Paddle:
+    position: float = 0.5  # 0 to 1, representing position along the edge
+
 @dataclass
 class Player:
     username: str
@@ -28,8 +41,8 @@ class Player:
     is_bot: bool = False
     ws: Optional[object] = None
     score: int = 0
-    snake: List[Dict[str, float]] = field(default_factory=list)
-    direction: Dict[str, float] = field(default_factory=lambda: {"x": 0, "y": 0})
+    paddle: Paddle = field(default_factory=Paddle)
+    player_index: int = 0  # 0, 1, or 2
 
 @dataclass
 class Ball:
@@ -69,12 +82,10 @@ def create_bot(lobby: Lobby) -> Optional[Player]:
     if not available_colors:
         return None
 
-    # Choose bot name that isn't already taken
     used_names = {p.username for p in lobby.players if p is not None}
     available_bot_names = [name for name in BOT_NAMES if name not in used_names]
 
     if not available_bot_names:
-        # If both bot names are taken, use Robot1, Robot2, etc.
         bot_name = f"Robot{random.randint(1, 99)}"
     else:
         bot_name = random.choice(available_bot_names)
@@ -86,40 +97,121 @@ def create_bot(lobby: Lobby) -> Optional[Player]:
         ws=None
     )
 
+def get_triangle_vertices():
+    """Get the three vertices of the triangle"""
+    vertices = []
+    for i in range(3):
+        angle = (i * 120 - 90) * math.pi / 180  # Start from top
+        x = TRIANGLE_CENTER + TRIANGLE_RADIUS * math.cos(angle)
+        y = TRIANGLE_CENTER + TRIANGLE_RADIUS * math.sin(angle)
+        vertices.append((x, y))
+    return vertices
+
+def get_edge_endpoints(player_index):
+    """Get the two endpoints of an edge for a player"""
+    vertices = get_triangle_vertices()
+    # Player 0: bottom edge (vertices 1-2)
+    # Player 1: top-right edge (vertices 2-0)
+    # Player 2: top-left edge (vertices 0-1)
+    if player_index == 0:
+        return vertices[1], vertices[2]
+    elif player_index == 1:
+        return vertices[2], vertices[0]
+    else:
+        return vertices[0], vertices[1]
+
+def get_paddle_position(player_index, paddle_pos):
+    """Get paddle center position based on player index and paddle position (0-1)"""
+    p1, p2 = get_edge_endpoints(player_index)
+    # Interpolate between endpoints
+    x = p1[0] + (p2[0] - p1[0]) * paddle_pos
+    y = p1[1] + (p2[1] - p1[1]) * paddle_pos
+    return (x, y)
+
+def point_in_triangle(px, py):
+    """Check if point is inside the triangle"""
+    vertices = get_triangle_vertices()
+    v0, v1, v2 = vertices
+
+    def sign(p1, p2, p3):
+        return (p1[0] - p3[0]) * (p2[1] - p3[1]) - (p2[0] - p3[0]) * (p1[1] - p3[1])
+
+    d1 = sign((px, py), v0, v1)
+    d2 = sign((px, py), v1, v2)
+    d3 = sign((px, py), v2, v0)
+
+    has_neg = (d1 < 0) or (d2 < 0) or (d3 < 0)
+    has_pos = (d1 > 0) or (d2 > 0) or (d3 > 0)
+
+    return not (has_neg and has_pos)
+
+def line_intersection(p1, p2, p3, p4):
+    """Find intersection point of two line segments"""
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+    x4, y4 = p4
+
+    denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(denom) < 0.0001:
+        return None
+
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+    u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+
+    if 0 <= t <= 1 and 0 <= u <= 1:
+        x = x1 + t * (x2 - x1)
+        y = y1 + t * (y2 - y1)
+        return (x, y)
+    return None
+
+def check_paddle_collision(ball_x, ball_y, ball_vx, ball_vy, player):
+    """Check if ball collides with a paddle"""
+    p1, p2 = get_edge_endpoints(player.player_index)
+    paddle_center = get_paddle_position(player.player_index, player.paddle.position)
+
+    # Calculate paddle endpoints based on edge direction
+    edge_dx = p2[0] - p1[0]
+    edge_dy = p2[1] - p1[1]
+    edge_len = math.sqrt(edge_dx**2 + edge_dy**2)
+    edge_dx /= edge_len
+    edge_dy /= edge_len
+
+    # Paddle endpoints
+    half_len = PADDLE_LENGTH / 2
+    paddle_p1 = (paddle_center[0] - edge_dx * half_len, paddle_center[1] - edge_dy * half_len)
+    paddle_p2 = (paddle_center[0] + edge_dx * half_len, paddle_center[1] + edge_dy * half_len)
+
+    # Check distance from ball to paddle line segment
+    px, py = paddle_center
+    dx = ball_x - px
+    dy = ball_y - py
+    dist = abs(dx * (-edge_dy) + dy * edge_dx)
+
+    if dist < BALL_RADIUS + PADDLE_WIDTH / 2:
+        # Check if ball is within paddle length
+        proj = dx * edge_dx + dy * edge_dy
+        if abs(proj) < half_len:
+            return True
+    return False
+
 def initialize_game(lobby: Lobby):
     """Initialize the game state when starting"""
     # Initialize ball in center with random direction
-    angle = random.uniform(0, 2 * 3.14159)
-    speed = 200
+    angle = random.uniform(0, 2 * math.pi)
+    speed = 250
     lobby.ball = Ball(
-        x=400, y=400,
-        vx=speed * (random.random() * 0.4 + 0.8) * (1 if random.random() > 0.5 else -1),
-        vy=speed * (random.random() * 0.4 + 0.8) * (1 if random.random() > 0.5 else -1)
+        x=TRIANGLE_CENTER,
+        y=TRIANGLE_CENTER,
+        vx=speed * math.cos(angle),
+        vy=speed * math.sin(angle)
     )
 
-    # Initialize player snakes at three sides of the triangle
-    positions = [
-        {"x": 400, "y": 50, "angle": 90},   # Top
-        {"x": 100, "y": 650, "angle": 330}, # Bottom left
-        {"x": 700, "y": 650, "angle": 210}  # Bottom right
-    ]
-
+    # Set player indices
     for i, player in enumerate(lobby.players):
         if player is not None:
-            pos = positions[i]
-            # Initialize snake with 5 segments
-            player.snake = []
-            for j in range(5):
-                player.snake.append({
-                    "x": pos["x"],
-                    "y": pos["y"] + j * 10
-                })
-            # Set initial direction based on position
-            angle_rad = pos["angle"] * 3.14159 / 180
-            player.direction = {
-                "x": 0,
-                "y": 0
-            }
+            player.player_index = i
+            player.paddle.position = 0.5
             player.score = 0
 
 async def broadcast_lobby_state(lobby: Lobby):
@@ -143,7 +235,6 @@ async def broadcast_lobby_state(lobby: Lobby):
         "game_started": lobby.game_started
     }
 
-    # Send to all connected players
     for player in lobby.players:
         if player is not None and player.ws is not None:
             try:
@@ -156,35 +247,38 @@ async def broadcast_game_state(lobby: Lobby):
     if not lobby.game_started or lobby.ball is None:
         return
 
-    players_data = []
-    for p in lobby.players:
-        if p is None:
-            players_data.append(None)
-        else:
-            players_data.append({
-                "username": p.username,
-                "color": p.color,
-                "score": p.score,
-                "snake": p.snake,
-                "direction": p.direction
-            })
+    # Send different view to each player
+    for current_player in lobby.players:
+        if current_player is None or current_player.ws is None:
+            continue
 
-    message = {
-        "type": "game_update",
-        "ball": {
-            "x": lobby.ball.x,
-            "y": lobby.ball.y
-        },
-        "players": players_data
-    }
+        players_data = []
+        for p in lobby.players:
+            if p is None:
+                players_data.append(None)
+            else:
+                players_data.append({
+                    "username": p.username,
+                    "color": p.color,
+                    "score": p.score,
+                    "paddle_position": p.paddle.position,
+                    "player_index": p.player_index
+                })
 
-    # Send to all connected players
-    for player in lobby.players:
-        if player is not None and player.ws is not None:
-            try:
-                await player.ws.send(json.dumps(message))
-            except:
-                pass
+        message = {
+            "type": "game_update",
+            "ball": {
+                "x": lobby.ball.x,
+                "y": lobby.ball.y
+            },
+            "players": players_data,
+            "your_index": current_player.player_index
+        }
+
+        try:
+            await current_player.ws.send(json.dumps(message))
+        except:
+            pass
 
 async def game_loop(lobby: Lobby):
     """Main game loop for a lobby"""
@@ -194,100 +288,119 @@ async def game_loop(lobby: Lobby):
             dt = current_time - lobby.last_update
             lobby.last_update = current_time
 
-            if dt > 0.1:  # Cap dt to prevent huge jumps
+            if dt > 0.1:
                 dt = 0.1
 
-            # Update ball position
             if lobby.ball:
+                # Update ball position
                 lobby.ball.x += lobby.ball.vx * dt
                 lobby.ball.y += lobby.ball.vy * dt
 
-                # Ball collision with walls - award points to opposite players
-                scored = False
-                if lobby.ball.y <= 10:  # Top wall hit
-                    lobby.ball.y = 10
-                    lobby.ball.vy = abs(lobby.ball.vy)
-                    # Award points to bottom two players (indices 1 and 2)
-                    if lobby.players[1]: lobby.players[1].score += 1
-                    if lobby.players[2]: lobby.players[2].score += 1
-                    scored = True
-                elif lobby.ball.y >= 790:  # Bottom wall hit
-                    lobby.ball.y = 790
-                    lobby.ball.vy = -abs(lobby.ball.vy)
-                    # Award points to top player and right diagonal (indices 0 and 2)
-                    if lobby.players[0]: lobby.players[0].score += 1
-                    if lobby.players[2]: lobby.players[2].score += 1
-                    scored = True
+                vertices = get_triangle_vertices()
 
-                if lobby.ball.x <= 10:  # Left wall hit
-                    lobby.ball.x = 10
-                    lobby.ball.vx = abs(lobby.ball.vx)
-                    # Award points to right two players (indices 0 and 2)
-                    if lobby.players[0]: lobby.players[0].score += 1
-                    if lobby.players[2]: lobby.players[2].score += 1
-                    scored = True
-                elif lobby.ball.x >= 790:  # Right wall hit
-                    lobby.ball.x = 790
-                    lobby.ball.vx = -abs(lobby.ball.vx)
-                    # Award points to left two players (indices 0 and 1)
-                    if lobby.players[0]: lobby.players[0].score += 1
-                    if lobby.players[1]: lobby.players[1].score += 1
-                    scored = True
+                # Check collision with each edge
+                for i in range(3):
+                    v1 = vertices[i]
+                    v2 = vertices[(i + 1) % 3]
 
-                # Check for win condition
-                for player in lobby.players:
-                    if player and player.score >= 19:
-                        winner_message = {
-                            "type": "game_over",
-                            "winner": player.username
-                        }
-                        for p in lobby.players:
-                            if p is not None and p.ws is not None:
-                                try:
-                                    await p.ws.send(json.dumps(winner_message))
-                                except:
-                                    pass
-                        lobby.game_started = False
-                        return
+                    # Get the player defending this edge
+                    # Player 0 defends bottom (edge 1-2)
+                    # Player 1 defends right (edge 2-0)
+                    # Player 2 defends left (edge 0-1)
+                    edge_to_player = {0: 2, 1: 0, 2: 1}
+                    player = lobby.players[edge_to_player[i]]
+
+                    # Calculate distance to edge
+                    edge_dx = v2[0] - v1[0]
+                    edge_dy = v2[1] - v1[1]
+                    edge_len = math.sqrt(edge_dx**2 + edge_dy**2)
+                    edge_nx = -edge_dy / edge_len
+                    edge_ny = edge_dx / edge_len
+
+                    # Distance from ball to edge
+                    ball_to_v1_x = lobby.ball.x - v1[0]
+                    ball_to_v1_y = lobby.ball.y - v1[1]
+                    dist = ball_to_v1_x * edge_nx + ball_to_v1_y * edge_ny
+
+                    # Check if ball is close to this edge
+                    if abs(dist) < BALL_RADIUS + 10:
+                        # Check if ball hit paddle or wall
+                        if player and check_paddle_collision(lobby.ball.x, lobby.ball.y,
+                                                             lobby.ball.vx, lobby.ball.vy, player):
+                            # Bounce off paddle
+                            # Reflect velocity
+                            dot = lobby.ball.vx * edge_nx + lobby.ball.vy * edge_ny
+                            lobby.ball.vx -= 2 * dot * edge_nx
+                            lobby.ball.vy -= 2 * dot * edge_ny
+                            # Move ball away from paddle
+                            lobby.ball.x += edge_nx * (BALL_RADIUS + 10 - abs(dist))
+                            lobby.ball.y += edge_ny * (BALL_RADIUS + 10 - abs(dist))
+                        elif dist < 0:  # Ball went past paddle (scored)
+                            # Award points to other two players
+                            for j, p in enumerate(lobby.players):
+                                if p and j != edge_to_player[i]:
+                                    p.score += 1
+
+                            # Reset ball
+                            lobby.ball.x = TRIANGLE_CENTER
+                            lobby.ball.y = TRIANGLE_CENTER
+                            angle = random.uniform(0, 2 * math.pi)
+                            speed = 250
+                            lobby.ball.vx = speed * math.cos(angle)
+                            lobby.ball.vy = speed * math.sin(angle)
+
+                            # Check win condition
+                            for p in lobby.players:
+                                if p and p.score >= 19:
+                                    winner_message = {
+                                        "type": "game_over",
+                                        "winner": p.username
+                                    }
+                                    for player in lobby.players:
+                                        if player and player.ws:
+                                            try:
+                                                await player.ws.send(json.dumps(winner_message))
+                                            except:
+                                                pass
+                                    lobby.game_started = False
+                                    return
 
             # Update bot AI
             for player in lobby.players:
                 if player and player.is_bot and lobby.ball:
-                    # Simple bot AI: move towards ball
-                    if len(player.snake) > 0:
-                        head = player.snake[0]
-                        dx = lobby.ball.x - head["x"]
-                        dy = lobby.ball.y - head["y"]
-                        length = (dx*dx + dy*dy) ** 0.5
-                        if length > 0:
-                            player.direction = {
-                                "x": dx / length,
-                                "y": dy / length
-                            }
+                    # Simple bot: move paddle toward ball's position along edge
+                    paddle_pos = get_paddle_position(player.player_index, player.paddle.position)
+                    p1, p2 = get_edge_endpoints(player.player_index)
 
-            # Update player snakes
-            for player in lobby.players:
-                if player and len(player.snake) > 0:
-                    speed = 100
-                    head = player.snake[0].copy()
-                    head["x"] += player.direction["x"] * speed * dt
-                    head["y"] += player.direction["y"] * speed * dt
+                    # Project ball position onto edge
+                    edge_dx = p2[0] - p1[0]
+                    edge_dy = p2[1] - p1[1]
+                    edge_len = math.sqrt(edge_dx**2 + edge_dy**2)
 
-                    # Keep snake within bounds
-                    head["x"] = max(20, min(780, head["x"]))
-                    head["y"] = max(20, min(780, head["y"]))
+                    ball_to_p1_x = lobby.ball.x - p1[0]
+                    ball_to_p1_y = lobby.ball.y - p1[1]
+                    proj = (ball_to_p1_x * edge_dx + ball_to_p1_y * edge_dy) / (edge_len**2)
+                    proj = max(0.1, min(0.9, proj))
 
-                    player.snake.insert(0, head)
+                    # Move toward projected position
+                    target_diff = proj - player.paddle.position
+                    move_speed = 0.6 * dt
+                    if abs(target_diff) < move_speed:
+                        player.paddle.position = proj
+                    elif target_diff > 0:
+                        player.paddle.position += move_speed
+                    else:
+                        player.paddle.position -= move_speed
 
-                    # Keep snake at fixed length
-                    while len(player.snake) > 50:
-                        player.snake.pop()
+                    player.paddle.position = max(0.1, min(0.9, player.paddle.position))
 
             await broadcast_game_state(lobby)
             await asyncio.sleep(0.016)  # ~60 FPS
 
         except Exception as e:
             print(f"Error in game loop: {e}")
+            import traceback
+            traceback.print_exc()
             await asyncio.sleep(0.1)
 
 @app.route('/')
@@ -306,7 +419,6 @@ async def ws():
                 username = message.get('username', 'Player')
                 color = message.get('color', COLORS[0])
 
-                # Create new lobby
                 code = generate_lobby_code()
                 player = Player(username=username, color=color, ws=websocket)
                 lobby = Lobby(
@@ -344,7 +456,6 @@ async def ws():
                     }))
                     continue
 
-                # Check if color is available
                 if color not in get_available_colors(lobby):
                     await websocket.send(json.dumps({
                         "type": "error",
@@ -352,7 +463,6 @@ async def ws():
                     }))
                     continue
 
-                # Find empty slot
                 slot = None
                 for i in range(3):
                     if lobby.players[i] is None:
@@ -383,7 +493,6 @@ async def ws():
                 code = ws_to_lobby[websocket]
                 lobby = lobbies[code]
 
-                # Only creator can start
                 if websocket != lobby.creator_ws:
                     continue
 
@@ -398,11 +507,9 @@ async def ws():
                 initialize_game(lobby)
 
                 await broadcast_lobby_state(lobby)
-
-                # Start game loop
                 asyncio.create_task(game_loop(lobby))
 
-            elif msg_type == 'player_input':
+            elif msg_type == 'paddle_move':
                 if websocket not in ws_to_lobby:
                     continue
 
@@ -413,31 +520,25 @@ async def ws():
                     continue
 
                 # Find player
-                player = None
                 for p in lobby.players:
                     if p and p.ws == websocket:
-                        player = p
+                        direction = message.get('direction', 0)  # -1 left, 1 right
+                        p.paddle.position += direction * 0.02
+                        p.paddle.position = max(0.1, min(0.9, p.paddle.position))
                         break
-
-                if player:
-                    direction = message.get('direction', {})
-                    player.direction = direction
 
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:
-        # Clean up on disconnect
         if websocket in ws_to_lobby:
             code = ws_to_lobby[websocket]
             if code in lobbies:
                 lobby = lobbies[code]
 
-                # Remove player
                 for i in range(3):
                     if lobby.players[i] and lobby.players[i].ws == websocket:
                         lobby.players[i] = None
 
-                # If lobby is empty or game not started, remove lobby
                 if all(p is None for p in lobby.players) or not lobby.game_started:
                     del lobbies[code]
                 else:
