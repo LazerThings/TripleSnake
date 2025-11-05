@@ -328,11 +328,22 @@ async def game_loop(lobby: Lobby):
                         # Check if ball hit paddle or wall
                         if player and check_paddle_collision(lobby.ball.x, lobby.ball.y,
                                                              lobby.ball.vx, lobby.ball.vy, player):
-                            # Bounce off paddle
-                            # Reflect velocity
+                            # Bounce off paddle with randomness
+                            # Calculate base reflection
                             dot = lobby.ball.vx * edge_nx + lobby.ball.vy * edge_ny
                             lobby.ball.vx -= 2 * dot * edge_nx
                             lobby.ball.vy -= 2 * dot * edge_ny
+
+                            # Add random angle variation (±30 degrees)
+                            current_angle = math.atan2(lobby.ball.vy, lobby.ball.vx)
+                            angle_variation = random.uniform(-math.pi/6, math.pi/6)  # ±30°
+                            new_angle = current_angle + angle_variation
+
+                            # Maintain ball speed but change direction
+                            speed = math.sqrt(lobby.ball.vx**2 + lobby.ball.vy**2)
+                            lobby.ball.vx = speed * math.cos(new_angle)
+                            lobby.ball.vy = speed * math.sin(new_angle)
+
                             # Move ball away from paddle
                             lobby.ball.x += edge_nx * (BALL_RADIUS + 10 - abs(dist))
                             lobby.ball.y += edge_ny * (BALL_RADIUS + 10 - abs(dist))
