@@ -5,13 +5,13 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+    background: #0a0a0a;
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #333;
+    color: #e0e0e0;
 }
 
 #app {
@@ -23,54 +23,58 @@ body {
 
 .screen {
     display: none;
-    background: white;
-    border-radius: 20px;
+    background: #1a1a1a;
+    border: 2px solid #333;
     padding: 40px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: fadeIn 0.3s ease-in;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
 }
 
 .screen.active {
     display: block;
+    animation: fadeIn 0.2s ease-in;
 }
 
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(-20px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
 h1 {
     font-size: 3em;
     text-align: center;
-    color: #667eea;
+    color: #00ff00;
     margin-bottom: 10px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 4px;
 }
 
 h2 {
     font-size: 2em;
     text-align: center;
-    color: #667eea;
+    color: #00ff00;
     margin-bottom: 30px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 h3 {
     font-size: 1.3em;
-    color: #555;
+    color: #cccccc;
     margin-bottom: 15px;
+    text-transform: uppercase;
 }
 
 .subtitle {
     text-align: center;
-    color: #666;
-    font-size: 1.2em;
+    color: #888;
+    font-size: 1.1em;
     margin-bottom: 40px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 .menu-buttons {
@@ -84,32 +88,34 @@ h3 {
 .btn {
     padding: 15px 30px;
     font-size: 1.1em;
-    border: none;
-    border-radius: 10px;
+    border: 2px solid;
+    background: transparent;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.1s ease;
     font-weight: 600;
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .btn-primary {
-    background: #667eea;
-    color: white;
+    border-color: #00ff00;
+    color: #00ff00;
 }
 
 .btn-primary:hover {
-    background: #5568d3;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    background: #00ff00;
+    color: #0a0a0a;
 }
 
 .btn-secondary {
-    background: #e0e0e0;
-    color: #333;
+    border-color: #666;
+    color: #999;
 }
 
 .btn-secondary:hover {
-    background: #d0d0d0;
-    transform: translateY(-2px);
+    background: #333;
+    color: #e0e0e0;
 }
 
 .form-group {
@@ -120,21 +126,26 @@ h3 {
     display: block;
     margin-bottom: 8px;
     font-weight: 600;
-    color: #555;
+    color: #cccccc;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.9em;
 }
 
 .form-group input {
     width: 100%;
     padding: 12px;
     font-size: 1em;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    transition: border-color 0.3s;
+    border: 2px solid #333;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+    transition: border-color 0.2s;
 }
 
 .form-group input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #00ff00;
 }
 
 .color-picker {
@@ -147,20 +158,18 @@ h3 {
 .color-option {
     width: 100%;
     aspect-ratio: 1;
-    border-radius: 8px;
     cursor: pointer;
-    border: 3px solid transparent;
-    transition: all 0.2s;
+    border: 2px solid transparent;
+    transition: all 0.1s;
 }
 
 .color-option:hover {
-    transform: scale(1.1);
+    border-color: #666;
 }
 
 .color-option.selected {
-    border-color: #333;
-    transform: scale(1.15);
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    border-color: #00ff00;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
 }
 
 .color-option.disabled {
@@ -169,7 +178,7 @@ h3 {
 }
 
 .color-option.disabled:hover {
-    transform: none;
+    border-color: transparent;
 }
 
 .button-group {
@@ -187,14 +196,14 @@ h3 {
     font-size: 1.3em;
     margin-bottom: 30px;
     padding: 15px;
-    background: #f5f5f5;
-    border-radius: 10px;
+    background: #0a0a0a;
+    border: 2px solid #333;
 }
 
 .lobby-code strong {
-    color: #667eea;
+    color: #00ff00;
     font-size: 1.5em;
-    letter-spacing: 3px;
+    letter-spacing: 8px;
 }
 
 .players-list {
@@ -206,16 +215,16 @@ h3 {
     align-items: center;
     padding: 15px;
     margin-bottom: 10px;
-    background: #f9f9f9;
-    border-radius: 10px;
-    border-left: 5px solid;
+    background: #0a0a0a;
+    border: 2px solid;
+    border-left-width: 5px;
 }
 
 .player-color {
     width: 30px;
     height: 30px;
-    border-radius: 50%;
     margin-right: 15px;
+    border: 1px solid #333;
 }
 
 .player-name {
@@ -225,23 +234,23 @@ h3 {
 }
 
 .player-bot {
-    color: #888;
+    color: #666;
     font-size: 0.9em;
 }
 
 .player-score {
     font-weight: bold;
     font-size: 1.2em;
-    color: #667eea;
+    color: #00ff00;
 }
 
 .empty-slot {
-    color: #999;
+    color: #555;
     font-style: italic;
     padding: 15px;
     text-align: center;
-    background: #f0f0f0;
-    border-radius: 10px;
+    background: #0a0a0a;
+    border: 2px dashed #333;
     margin-bottom: 10px;
 }
 
@@ -266,9 +275,9 @@ h3 {
     align-items: center;
     gap: 10px;
     padding: 10px 20px;
-    background: #f5f5f5;
-    border-radius: 10px;
-    border-left: 5px solid;
+    background: #0a0a0a;
+    border: 2px solid #333;
+    border-left-width: 5px;
 }
 
 .score-name {
@@ -278,29 +287,34 @@ h3 {
 .score-value {
     font-size: 1.3em;
     font-weight: bold;
-    color: #667eea;
+    color: #00ff00;
 }
 
 #gameCanvas {
     display: block;
     margin: 0 auto;
-    border-radius: 10px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-    background: #1a1a1a;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+    background: #0a0a0a;
+    border: 2px solid #333;
 }
 
 .game-controls {
     text-align: center;
     margin-top: 15px;
     color: #666;
+    text-transform: uppercase;
+    font-size: 0.9em;
+    letter-spacing: 1px;
 }
 
 .winner-text {
     text-align: center;
     font-size: 1.5em;
-    color: #667eea;
+    color: #00ff00;
     margin: 30px 0;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 .message-box {
@@ -308,13 +322,16 @@ h3 {
     top: 20px;
     right: 20px;
     padding: 15px 25px;
-    background: #f44336;
-    color: white;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    background: #ff0000;
+    color: #ffffff;
+    border: 2px solid #ff0000;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
     display: none;
-    animation: slideIn 0.3s ease;
+    animation: slideIn 0.2s ease;
     z-index: 1000;
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .message-box.show {
@@ -322,11 +339,16 @@ h3 {
 }
 
 .message-box.info {
-    background: #2196F3;
+    background: #0066ff;
+    border-color: #0066ff;
+    box-shadow: 0 0 20px rgba(0, 102, 255, 0.5);
 }
 
 .message-box.success {
-    background: #4CAF50;
+    background: #00ff00;
+    border-color: #00ff00;
+    color: #0a0a0a;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
 }
 
 @keyframes slideIn {
@@ -347,6 +369,7 @@ h3 {
 
     h1 {
         font-size: 2em;
+        letter-spacing: 2px;
     }
 
     h2 {

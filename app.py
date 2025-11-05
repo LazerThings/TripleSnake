@@ -9,11 +9,14 @@ import json
 
 app = Quart(__name__)
 
-# Color palette (18 colors)
+# Color palette (18 colors - 9 light, 9 dark)
 COLORS = [
-    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF",
-    "#FF8000", "#8000FF", "#00FF80", "#FF0080", "#80FF00", "#0080FF",
-    "#FF4040", "#40FF40", "#4040FF", "#FFAA00", "#AA00FF", "#00AAFF"
+    # Light colors
+    "#FF3333", "#33FF33", "#3333FF", "#FFFF33", "#FF33FF", "#33FFFF",
+    "#FF9933", "#FF3399", "#99FF33",
+    # Dark colors
+    "#990000", "#009900", "#000099", "#996600", "#990099", "#009999",
+    "#663300", "#660066", "#336600"
 ]
 
 BOT_NAMES = ["Robot", "Botsy"]
