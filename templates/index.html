@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TripleSnake - 3 Player Snake Game</title>
+    <title>TriplePong.io - 3 Player Triangle Pong</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div id="app">
         <!-- Main Menu -->
         <div id="menu" class="screen active">
-            <h1>TripleSnake</h1>
-            <p class="subtitle">3-Player Multiplayer Snake</p>
+            <h1>TriplePong.io</h1>
+            <p class="subtitle">3-Player Triangle Pong</p>
             <div class="menu-buttons">
                 <button id="createLobbyBtn" class="btn btn-primary">Create Lobby</button>
                 <button id="joinLobbyBtn" class="btn btn-secondary">Join Lobby</button>
@@ -79,7 +79,7 @@
             </div>
             <canvas id="gameCanvas" width="800" height="800"></canvas>
             <div class="game-controls">
-                <p>Use arrow keys or WASD to control your snake</p>
+                <p>Use LEFT/RIGHT arrow keys or A/D to move your paddle</p>
             </div>
         </div>
 
