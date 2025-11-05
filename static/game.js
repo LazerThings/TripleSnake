@@ -27,6 +27,7 @@ let myPlayerIndex = 0;
 let myUsername = '';
 let usedColors = [];
 let keysPressed = {};
+let lastDirection = 0;
 
 // Canvas
 const canvas = document.getElementById('gameCanvas');
@@ -502,18 +503,22 @@ function handleKeyUp(event) {
 function updatePaddleMovement() {
     let direction = 0;
 
+    // Invert direction because paddle position is mapped backwards
     if (keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) {
-        direction = -1;
+        direction = 1;  // Increase position to move left
     }
     if (keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) {
-        direction = 1;
+        direction = -1;  // Decrease position to move right
     }
 
-    // Always send the current direction (0 means no movement)
-    ws.send(JSON.stringify({
-        type: 'paddle_move',
-        direction: direction
-    }));
+    // Only send if direction changed
+    if (direction !== lastDirection) {
+        lastDirection = direction;
+        ws.send(JSON.stringify({
+            type: 'paddle_move',
+            direction: direction
+        }));
+    }
 }
 
 function showGameOver(winner) {
