@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     renderColorPickers();
     showScreen('menu');
+    gameLoop(); // Start the game loop
 });
 
 function setupEventListeners() {
@@ -338,6 +339,15 @@ function rotatePoint(x, y, angle, centerX, centerY) {
     };
 }
 
+function gameLoop() {
+    // Send continuous paddle movement while keys are held
+    if (currentScreen === 'gameScreen' && ws && ws.readyState === WebSocket.OPEN) {
+        updatePaddleMovement();
+    }
+    renderGame();
+    requestAnimationFrame(gameLoop);
+}
+
 function renderGame() {
     if (!gameState) return;
 
@@ -481,13 +491,12 @@ function updateScoreboard() {
 function handleKeyDown(event) {
     if (currentScreen !== 'gameScreen' || !ws) return;
     keysPressed[event.key] = true;
-    updatePaddleMovement();
+    event.preventDefault(); // Prevent arrow key scrolling
 }
 
 function handleKeyUp(event) {
     if (currentScreen !== 'gameScreen' || !ws) return;
     keysPressed[event.key] = false;
-    updatePaddleMovement();
 }
 
 function updatePaddleMovement() {
@@ -500,12 +509,11 @@ function updatePaddleMovement() {
         direction = 1;
     }
 
-    if (direction !== 0) {
-        ws.send(JSON.stringify({
-            type: 'paddle_move',
-            direction: direction
-        }));
-    }
+    // Always send the current direction (0 means no movement)
+    ws.send(JSON.stringify({
+        type: 'paddle_move',
+        direction: direction
+    }));
 }
 
 function showGameOver(winner) {

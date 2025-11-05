@@ -43,6 +43,7 @@ class Player:
     score: int = 0
     paddle: Paddle = field(default_factory=Paddle)
     player_index: int = 0  # 0, 1, or 2
+    direction: int = 0  # Current input direction: -1 (left), 0 (none), 1 (right)
 
 @dataclass
 class Ball:
@@ -365,11 +366,15 @@ async def game_loop(lobby: Lobby):
                                     lobby.game_started = False
                                     return
 
-            # Update bot AI
+            # Update bot AI and player movement
+            PADDLE_SPEED = 0.8  # Units per second (same for bots and players)
+
             for player in lobby.players:
-                if player and player.is_bot and lobby.ball:
-                    # Simple bot: move paddle toward ball's position along edge
-                    paddle_pos = get_paddle_position(player.player_index, player.paddle.position)
+                if not player:
+                    continue
+
+                if player.is_bot and lobby.ball:
+                    # Bot AI: move paddle toward ball's position along edge
                     p1, p2 = get_edge_endpoints(player.player_index)
 
                     # Project ball position onto edge
@@ -384,15 +389,21 @@ async def game_loop(lobby: Lobby):
 
                     # Move toward projected position
                     target_diff = proj - player.paddle.position
-                    move_speed = 0.6 * dt
+                    move_speed = PADDLE_SPEED * dt
                     if abs(target_diff) < move_speed:
                         player.paddle.position = proj
                     elif target_diff > 0:
                         player.paddle.position += move_speed
                     else:
                         player.paddle.position -= move_speed
+                else:
+                    # Human player: use their input direction
+                    if player.direction != 0:
+                        move_speed = PADDLE_SPEED * dt
+                        player.paddle.position += player.direction * move_speed
 
-                    player.paddle.position = max(0.1, min(0.9, player.paddle.position))
+                # Clamp paddle position to valid range
+                player.paddle.position = max(0.1, min(0.9, player.paddle.position))
 
             await broadcast_game_state(lobby)
             await asyncio.sleep(0.016)  # ~60 FPS
@@ -519,12 +530,10 @@ async def ws():
                 if not lobby.game_started:
                     continue
 
-                # Find player
+                # Find player and update their direction
                 for p in lobby.players:
                     if p and p.ws == websocket:
-                        direction = message.get('direction', 0)  # -1 left, 1 right
-                        p.paddle.position += direction * 0.02
-                        p.paddle.position = max(0.1, min(0.9, p.paddle.position))
+                        p.direction = message.get('direction', 0)  # -1 left, 0 none, 1 right
                         break
 
     except Exception as e:
