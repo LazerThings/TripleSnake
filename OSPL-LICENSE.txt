@@ -1,0 +1,102 @@
+Open Source Permissive License (OSPL)
+Version 1.0
+
+Copyright (c) [year] [copyright holder]
+
+Permission is hereby granted, free of charge, to any person or organization 
+obtaining a copy of this software and associated documentation files (the 
+"Software"), to use, copy, modify, merge, publish, distribute, sublicense, 
+and/or sell copies of the Software, subject to the following conditions:
+
+1. SOURCE VISIBILITY REQUIREMENT
+   Any software application, system, or service that incorporates, uses, or 
+   is derived from this Software must make its complete source code publicly 
+   accessible and viewable. This requirement applies to:
+   
+   a) The entire codebase of the application, including all components, 
+      modules, and dependencies
+   b) Software distributed as binaries or executables
+   c) Software provided as a network service, web application, API, or 
+      any other form of remote access (SaaS, cloud services, etc.)
+   
+   The source code must be made available in a commonly used format that 
+   allows viewing and copying, such as:
+   - A public version control repository (e.g., GitHub, GitLab, Bitbucket)
+   - A publicly accessible download link
+   - Any other method that provides reasonable access to users
+   
+   The source code may be licensed under any license of your choosing 
+   (proprietary, open source, or otherwise), provided the source remains 
+   publicly viewable as specified above.
+
+2. PROPAGATION OF VISIBILITY REQUIREMENT
+   This source visibility requirement is perpetual and applies to all 
+   derivatives, modifications, and works based upon this Software or any 
+   derivative thereof, regardless of any other licenses applied to such works.
+   
+   Any person or organization that distributes or provides access to software 
+   containing code originally licensed under the OSPL must:
+   
+   a) Ensure that the complete source code remains publicly accessible
+   b) Retain this license file or a clear notice stating that portions of 
+      the code are subject to the OSPL's source visibility requirement
+   c) Inform recipients that the source visibility requirement continues to 
+      apply to all future derivatives
+   
+   This requirement cannot be removed, waived, or superseded by any other 
+   license terms applied to derivative works. Additional licenses may impose 
+   further restrictions or grant additional permissions, but the source 
+   visibility requirement of the OSPL remains in effect.
+
+3. ATTRIBUTION
+   The above copyright notice and this permission notice shall be included 
+   in all copies or substantial portions of the Software. When incorporating 
+   this Software into a larger work, a notice must be included stating that 
+   portions are subject to the OSPL's source visibility requirement.
+
+4. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+   DEALINGS IN THE SOFTWARE.
+
+---
+
+EXPLANATION OF KEY TERMS:
+
+"Incorporates, uses, or is derived from" means any software that includes 
+this Software's code, links to it, calls its functions, or is built upon it 
+in any way.
+
+"Complete source code" means all source code necessary to build, modify, 
+and run the software, including build scripts, configuration files, and 
+documentation necessary for compilation.
+
+"Publicly accessible and viewable" means that any user of the software 
+(whether through distribution or network access) must be able to view and 
+obtain the source code without additional fees, registration requirements, 
+or unnecessary barriers.
+
+"Perpetual" means that once code is licensed under the OSPL, the source 
+visibility requirement continues through all subsequent versions, derivatives, 
+and modifications, even if additional or different licenses are applied. This 
+creates a permanent obligation that travels with the code.
+
+---
+
+PRACTICAL EXAMPLE:
+
+If you use OSPL-licensed code in your project:
+- You can license your overall project under MIT, GPL, proprietary, or any 
+  other license you choose
+- You can sell your software commercially
+- You can modify the code however you want
+- BUT: You must keep the complete source code publicly visible
+- AND: Anyone who uses your code must also keep their source visible
+- AND: You must include a notice that portions are subject to OSPL
+
+This means the visibility requirement "sticks" to the code forever, while 
+still allowing maximum flexibility in how you license your own contributions.
